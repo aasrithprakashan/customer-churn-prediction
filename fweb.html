@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Price Comparator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <style>
+        :root { --primary-blue: #0d6efd; --success-green: #198754; --warning-orange: #fd7e14; --danger-red: #dc3545; }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; font-family: 'Segoe UI', sans-serif; }
+        .hero { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 20px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+        .price-badge { font-size: 0.85em; padding: 0.25rem 0.5rem; border-radius: 12px; font-weight: 600; }
+        .cheapest { background: var(--success-green); color: white; }
+        .average { background: var(--warning-orange); color: white; }
+        .expensive { background: var(--danger-red); color: white; }
+        .non-stop { border-left: 4px solid var(--success-green); }
+        .one-stop { border-left: 4px solid var(--warning-orange); }
+        .savings { font-weight: bold; color: var(--success-green); }
+        #results { display: none; }
+        .filter-group { margin-bottom: 1rem; }
+        table { font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="hero p-4 p-md-5 text-center text-white mb-5">
+                    <h1 class="display-4 fw-bold mb-3"><i class="fas fa-plane-departure me-3"></i>Flight Price Comparator</h1>
+                    <p class="lead">Compare airlines, airports, non-stop vs. stops, and get full price breakdowns across countries.</p>
+                </div>
+
+                <!-- Search Form -->
+                <div class="card shadow-lg border-0 mb-5">
+                    <div class="card-body p-4">
+                        <form id="searchForm">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Origin Airport/City</label>
+                                    <select class="form-select" id="origin">
+                                        <option value="">Select Origin (e.g., CCJ - Cochin, India)</option>
+                                        <option value="CCJ|India|Air India|INR|12000|1h45m|non-stop">CCJ (Cochin, India)</option>
+                                        <option value="COK|India|IndiGo|INR|11000|2h|non-stop">COK (Kochi, India)</option>
+                                        <option value="DXB|UAE|Emirates|AED|800|4h30m|1-stop">DXB (Dubai, UAE)</option>
+                                        <option value="BOM|India|Vistara|INR|15000|3h|1-stop">BOM (Mumbai, India)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Destination Airport/City</label>
+                                    <select class="form-select" id="dest">
+                                        <option value="">Select Destination (e.g., BLR - Bangalore, India)</option>
+                                        <option value="BLR|India|Air India|INR|8500|1h30m|non-stop">BLR (Bangalore, India)</option>
+                                        <option value="MAA|India|IndiGo|INR|7000|2h15m|non-stop">MAA (Chennai, India)</option>
+                                        <option value="DEL|India|Vistara|INR|12000|3h|1-stop">DEL (Delhi, India)</option>
+                                        <option value="DXB|UAE|Emirates|AED|600|5h|non-stop">DXB (Dubai, UAE)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">Departure</label>
+                                    <input type="date" class="form-control" id="depart" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">Return</label>
+                                    <input type="date" class="form-control" id="return">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">Passengers</label>
+                                    <input type="number" class="form-control" id="passengers" value="1" min="1" max="9">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label fw-bold">&nbsp;</label>
+                                    <div class="d-grid">
+                                        <button type="submit" class="btn btn-primary btn-lg"><i class="fas fa-search me-2"></i>Compare Prices</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="filter-group mt-3">
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" id="nonstop" checked>
+                                    <label class="form-check-label">Non-Stop Only</label>
+                                </div>
+                                <select class="form-select w-auto d-inline-block ms-3" id="airlineFilter">
+                                    <option value="">All Airlines</option>
+                                    <option value="Air India">Air India</option>
+                                    <option value="IndiGo">IndiGo</option>
+                                    <option value="Emirates">Emirates</option>
+                                    <option value="Vistara">Vistara</option>
+                                </select>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Results -->
+                <div id="results" class="row">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h3 class="text-white mb-0"><i class="fas fa-list me-2"></i>Flight Comparisons (<span id="resultCount">0</span>)</h3>
+                            <button class="btn btn-outline-light btn-sm" onclick="sortTable('price')"><i class="fas fa-sort-numeric-down me-1"></i>Sort by Price</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-dark table-hover" id="flightTable">
+                                <thead>
+                                    <tr>
+                                        <th>Airline</th>
+                                        <th>Route (Country)</th>
+                                        <th>Stops</th>
+                                        <th>Duration</th>
+                                        <th>Base Fare</th>
+                                        <th>Taxes/Fees</th>
+                                        <th>Baggage</th>
+                                        <th>Total (1 Pax)</th>
+                                        <th>vs Cheapest</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="text-center mt-4">
+                            <div id="savingsCalc" class="alert alert-success"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Mock flights data (expanded for comparisons)
+        const mockFlights = [
+            { airline: 'IndiGo', origin: 'COK', dest: 'BLR', country: 'India', stops: 'non-stop', duration: '2h', base: 7000, taxes: 1500, baggage: 500, currency: 'INR' },
+            { airline: 'Air India', origin: 'CCJ', dest: 'BLR', country: 'India', stops: 'non-stop', duration: '1h45m', base: 12000, taxes: 2000, baggage: 800, currency: 'INR' },
+            { airline: 'Vistara', origin: 'BOM', dest: 'MAA', country: 'India', stops: '1-stop', duration: '3h', base: 15000, taxes: 2500, baggage: 1000, currency: 'INR' },
+            { airline: 'Emirates', origin: 'DXB', dest: 'DEL', country: 'UAE-India', stops: 'non-stop', duration: '4h30m', base: 2400, taxes: 600, baggage: 300, currency: 'AED' }, // ~INR 5500 equiv
+            { airline: 'IndiGo', origin: 'COK', dest: 'MAA', country: 'India', stops: '1-stop', duration: '2h15m', base: 6500, taxes: 1200, baggage: 400, currency: 'INR' }
+        ];
+
+        document.getElementById('searchForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            renderResults();
+        });
+
+        function renderResults() {
+            const origin = document.getElementById('origin').value.split('|')[0];
+            const dest = document.getElementById('dest').value.split('|')[0];
+            const nonstop = document.getElementById('nonstop').checked;
+            const airlineFilter = document.getElementById('airlineFilter').value.toLowerCase();
+
+            let filtered = mockFlights.filter(f => 
+                (!origin || f.origin.includes(origin)) && (!dest || f.dest.includes(dest)) &&
+                (!nonstop || f.stops === 'non-stop') &&
+                (!airlineFilter || f.airline.toLowerCase().includes(airlineFilter))
+            );
+
+            // Fake dynamic data based on inputs
+            filtered = filtered.map(f => ({...f, total: f.base + f.taxes + f.baggage }));
+
+            // Find cheapest
+            const minPrice = Math.min(...filtered.map(f => f.total));
+            filtered.forEach(f => {
+                const diff = f.total - minPrice;
+                f.diff = diff;
+                f.priceClass = diff === 0 ? 'cheapest' : diff < 2000 ? 'average' : 'expensive';
+            });
+
+            displayTable(filtered);
+            document.getElementById('results').style.display = filtered.length ? 'block' : 'none';
+            document.getElementById('resultCount').textContent = filtered.length;
+            updateSavings(filtered, minPrice);
+        }
+
+        function displayTable(flights) {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = flights.map(f => `
+                <tr class="${f.stops === 'non-stop' ? 'non-stop' : 'one-stop'}">
+                    <td><i class="fas fa-plane me-2"></i>${f.airline}</td>
+                    <td>${f.origin}-${f.dest} <small class="text-muted">(${f.country})</small></td>
+                    <td><span class="badge ${f.stops === 'non-stop' ? 'bg-success' : 'bg-warning'}">${f.stops}</span></td>
+                    <td>${f.duration}</td>
+                    <td>${f.currency} ${f.base.toLocaleString()}</td>
+                    <td>${f.currency} ${f.taxes.toLocaleString()}</td>
+                    <td>${f.currency} ${f.baggage.toLocaleString()}</td>
+                    <td><strong>${f.currency} ${f.total.toLocaleString()}</strong></td>
+                    <td><span class="price-badge ${f.priceClass}">${f.diff === 0 ? 'Cheapest!' : `+${f.currency} ${f.diff.toLocaleString()}`}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        function updateSavings(flights, minPrice) {
+            const nonstopPrices = flights.filter(f => f.stops === 'non-stop').map(f => f.total);
+            const avgStop = flights.filter(f => f.stops !== 'non-stop').reduce((sum, f) => sum + f.total, 0) / (flights.length - nonstopPrices.length) || 0;
+            const savings = ((avgStop - Math.min(...nonstopPrices)) / avgStop * 100).toFixed(1);
+            document.getElementById('savingsCalc').innerHTML = `<i class="fas fa-coins me-2"></i>Non-stop saves <span class="savings">${savings}%</span> vs. stops (avg. ${avgStop.toLocaleString()})`;
+        }
+
+        function sortTable(key) {
+            const tbody = document.getElementById('tableBody');
+            const rows = Array.from(tbody.rows);
+            rows.sort((a, b) => parseFloat(a.cells[7].textContent.replace(/[^\d]/g, '')) - parseFloat(b.cells[7].textContent.replace(/[^\d]/g, '')));
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        // Init dates
+        document.getElementById('depart').valueAsDate = new Date();
+        document.getElementById('return').valueAsDate = new Date(Date.now() + 7*24*60*60*1000);
+
+        // Live filters
+        document.getElementById('nonstop').addEventListener('change', renderResults);
+        document.getElementById('airlineFilter').addEventListener('change', renderResults);
+    </script>
+</body>
+</html>
